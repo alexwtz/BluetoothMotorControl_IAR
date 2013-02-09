@@ -26,14 +26,12 @@ int main(void) {
   u8 loop = 1;
   
   initPA15();
-  initPA14();
   init_USART1(BT_BAUD);
   init_LIS302DL();
     
   TIM_Config_PWM();
   PWM_Config(1000);
   setPA15On();
-  setPA14Off();
   
 //  togglePA15();
 
@@ -41,14 +39,17 @@ int main(void) {
   PWM_SetDC(2,500);
   PWM_SetDC(2,750);
   PWM_SetDC(2,1000);
+
+  PWM_SetDC(4,500);
   
   int i = 0;
   int a = 1;
   while(1){
     i+=a;
-    if(i==900)a=-1;
-    if(i==100)a=1;
+    if(i==800)a=-1;
+    if(i==200)a=1;
     PWM_SetDC(2,i);
+    togglePA15();
     Delay(100000);
   }
  
@@ -99,10 +100,6 @@ void setPA15On(){
   GPIOA->BSRRL = GPIO_Pin_15;
 }
 
-void setPA14Off(){
-  GPIOA->BSRRL = GPIO_Pin_14;
-  GPIOA->ODR ^= GPIO_Pin_14;
-}
 
 void togglePA15(){
   //  GPIO port output data register,        Address offset: 0x14      */
@@ -241,21 +238,6 @@ void USART1_IRQHandler(void){
       cnt = 0;
     }
   }
-}
-
-void initPA14(){
-  GPIO_InitTypeDef  GPIO_InitStructure;
-  
-  /* Enable the GPIO_LED Clock */
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-  
-  /* Configure the GPIO_LED pin */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
 }
 
 void initPA15(){
