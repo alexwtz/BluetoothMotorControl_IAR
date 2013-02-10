@@ -10,7 +10,7 @@
 /* Exported types ------------------------------------------------------------*/
 
 /* Exported constants --------------------------------------------------------*/
-#define BT_BAUD 28800
+#define BT_BAUD 9200 //28800
 #define MAX_STRLEN 20 // this is the maximum string length of our string in characters
 
 /* Exported macro ------------------------------------------------------------*/

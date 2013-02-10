@@ -44,24 +44,21 @@ int main(void) {
   
 //  togglePA15();
 
-//  PWM_SetDC(2,100);
-  PWM_SetDC(2,500);
-//  PWM_SetDC(2,0);
-//  PWM_SetDC(2,1000);
   PWM_SetDC(1,500);
+  PWM_SetDC(2,500);
   PWM_SetDC(3,500);
   PWM_SetDC(4,500);
   
-  int i = 0;
-  int a = 1;
-  while(1){
-    i+=a;
-    if(i==800)a=-1;
-    if(i==200)a=1;
-    PWM_SetDC(1,i);
-//    togglePA15();
-    Delay(100000);
-  }
+//  int i = 0;
+//  int a = 1;
+//  while(1){
+//    i+=a;
+//    if(i==800)a=-1;
+//    if(i==200)a=1;
+//    PWM_SetDC(1,i);
+////    togglePA15();
+//    Delay(100000);
+//  }
  
   while(loop){
     //Read and print the accelerometer values
