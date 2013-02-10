@@ -15,6 +15,8 @@
 
 /* Exported macro ------------------------------------------------------------*/
 
+typedef enum { false = 0, true = 1 } bool; 
+
 /* Exported functions ------------------------------------------------------- */
 void TimingDelay_Decrement(void);
 void Delay(__IO uint32_t nTime);
@@ -26,8 +28,13 @@ void togglePA15();
 void initPA14();
 void setPA14Off();
 
-void TIM_Config_PWM(void);
-void PWM_Config(int period);
+void initMotor(int motorId,bool forward);
+
+void TIM3_Config();
+void TIM1_Config();
+void test1();
+void PWM1_Config(int period);
+void PWM3_Config(int period);
 void PWM_SetDC(uint16_t channel,uint16_t dutycycle);
 
 #endif /* __MAIN_H */
