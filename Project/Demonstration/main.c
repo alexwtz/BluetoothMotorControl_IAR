@@ -5,6 +5,9 @@
 static __IO uint32_t TimingDelay;
 void UARTSend(const unsigned char * pucBuffer, unsigned long ulCount);
 volatile char received_string[MAX_STRLEN+1]; // this will hold the recieved string
+static u8 sendPosition = 0;
+
+static uint8_t lx,ly,rx,ry;
 
 //LIS302DL accelerometer
 LIS302DL_InitTypeDef  LIS302DL_InitStruct;
@@ -30,46 +33,99 @@ int main(void) {
   
   unsigned char welcome_str[] = "xxyyzz\r\n";
   u8 loop = 1;
+
+  init_LED();
   
-  
-//  initPA15();
+  initPB0();
+  initPA15();
   init_USART1(BT_BAUD);
   init_LIS302DL();
-    
+  
+
+  
   TIM1_Config();
   TIM3_Config();
-  PWM1_Config(1000);
-  PWM3_Config(1000);
-//  setPA15On();
-  
-//  togglePA15();
+  PWM1_Config(100);
+  PWM3_Config(100);
+  //setPA15On();
+  //togglePA15();
 
-  PWM_SetDC(1,500);
-  PWM_SetDC(2,500);
-  PWM_SetDC(3,500);
-  PWM_SetDC(4,500);
+  setPB0(0);
+  setPA15(1);
+
+  PWM_SetDC(1,500); //PE9 | PC6
+  PWM_SetDC(2,0); //PE11 | PC 7
+  PWM_SetDC(3,0); //PE13
+  PWM_SetDC(4,0); //PE14
   
-//  int i = 0;
-//  int a = 1;
-//  while(1){
-//    i+=a;
-//    if(i==800)a=-1;
-//    if(i==200)a=1;
-//    PWM_SetDC(1,i);
-////    togglePA15();
-//    Delay(100000);
-//  }
- 
-  while(loop){
+  int i = 30;
+  int a = 1,b=0;
+  while(1){
+  PWM_SetDC(1,60);//ON 2ms
+  PWM_SetDC(1,30);//OFF 1ms
+  }
+  PWM_SetDC(1,30);
+  while(1){
+    i+=a;
+    if(i==60)a=-1;
+    if(i==30)a=1;
+    PWM_SetDC(1,i);
+//    togglePA15();
+    
+// 
+//  while(loop){
     //Read and print the accelerometer values
     LIS302DL_Read(Buffer, LIS302DL_OUT_X_ADDR, 6);
     printf("%d, %d ,%d\n",Buffer[0],Buffer[2],Buffer[4]);
     
-    //Send data through the bluetooth communication
-    UARTSend(welcome_str, sizeof(welcome_str));
+    if(sendPosition){
+    //Send the command
+    unsigned char cmd[] = "C1";
+    UARTSend(cmd,sizeof(cmd));
     
+    //Send data through the bluetooth communication
+    UARTSend(Buffer, sizeof(Buffer));
+    }
     //Wait some time befor ending the loop
     Delay(10000000);
+    if(i%2)GPIOD->BSRRL = 0x1000; // this sets LED1 (green)
+    else GPIOD->BSRRH = 0x1000;
+    GPIOD->BSRRH = 0x8000;
+//			// if the number of button presses is greater than 4, reset the counter (we start counting from 0!)
+//			if(b > 2){
+//				b = 0;
+//			}
+//			else{ // if it's smaller than 4, switch the LEDs
+//
+//				switch(b){
+//
+//					case 0:
+//						GPIOD->BSRRL = 0x1000; // this sets LED1 (green)
+//						GPIOD->BSRRH = 0x8000; // this resets LED4 (blue)
+//						break;
+//
+//					case 1:
+//						GPIOD->BSRRL = 0x2000; // this sets LED2 (orange)
+//						GPIOD->BSRRH = 0x1000; // this resets LED1
+//						break;
+//
+//					case 2:
+//						GPIOD->BSRRL = 0x4000; // this sets LED3 (red)
+//						GPIOD->BSRRH = 0x2000; // this resets LED2
+//						break;
+//
+//					case 3:
+//						GPIOD->BSRRL = 0x8000; // this sets LED4
+//						GPIOD->BSRRH = 0x4000; // this resets LED3
+//						break;
+//					}
+//
+//				b++; // increase the counter every time the switch is pressed
+//			}
+			
+		
+
+    
   }
   
     /* Disable SPI1 used to drive the MEMS accelerometre */
@@ -100,6 +156,17 @@ void UARTSend(const unsigned char *pucBuffer, unsigned long ulCount)
     /* Loop until the end of transmission */
     
   }
+  
+}
+
+void setPB0(int val){
+  if(val)GPIOB->BSRRL = GPIO_Pin_0;
+    else GPIOB->BSRRH = GPIO_Pin_0;
+}
+
+void setPA15(int val){
+    if(val)GPIOA->BSRRL = GPIO_Pin_15;
+    else GPIOA->BSRRH = GPIO_Pin_15;
 }
 
 void setPA15On(){
@@ -233,18 +300,55 @@ void USART1_IRQHandler(void){
     
     static uint8_t cnt = 0; // this counter is used to determine the string length
     char t = USART1->DR; // the character from the USART1 data register is saved in t
-    
+        
     /* check if the received character is not the LF character (used to determine end of string)
     * or the if the maximum string length has been been reached
     */
     if( (t != 'n') && (cnt < MAX_STRLEN) ){
       received_string[cnt] = t;
+      if(cnt == 4){
+        if(received_string[cnt-4]=='L'){
+          if(received_string[cnt-3]=='X'){
+            lx = 100*(received_string[cnt-2]-48)+10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }else if(received_string[cnt-3]=='Y'){
+            ly = 100*(received_string[cnt-2]-48)+10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }
+        }else if(received_string[cnt-4]=='R'){
+          if(received_string[cnt-3]=='X'){
+            rx = 100*(received_string[cnt-2]-48)+10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }else if(received_string[cnt-3]=='Y'){
+            ry = 100*(received_string[cnt-2]-48)+10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }
+        }
+      }
+      
+      if(received_string[cnt-1]=='C' && t == '1')sendPosition = 1;
+      if(received_string[cnt-1]=='C' && t == '0')sendPosition = 0;
+      if(cnt%2)GPIOD->BSRRL = 0x8000; // this sets LED4
+      else GPIOD->BSRRH = 0x8000; // this sets LED4
       cnt++;
+      
     }
     else{ // otherwise reset the character counter
       cnt = 0;
     }
+    
   }
+}
+
+void initPB0(){
+  GPIO_InitTypeDef  GPIO_InitStructure;
+  
+  /* Enable the GPIO_LED Clock */
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
+  
+  /* Configure the GPIO_LED pin */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
 
 void initPA15(){
@@ -440,7 +544,7 @@ void PWM1_Config(int period)
   /* Time Base configuration */
     uint16_t PrescalerValue = 0;
   /* Compute the prescaler value */
-  PrescalerValue = (uint16_t) ((SystemCoreClock /2) / 28000000) - 1;
+  PrescalerValue = (uint16_t) ((SystemCoreClock /2) / 16000) - 1;
   
   TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
   TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
@@ -525,4 +629,55 @@ void PWM3_Config(int period)
   TIM_ARRPreloadConfig(TIM3, ENABLE);
   /* TIM3 enable counter */
   TIM_Cmd(TIM3, ENABLE);
+}
+
+/* This funcion shows how to initialize
+ * the GPIO pins on GPIOD and how to configure
+ * them as inputs and outputs
+ */
+void init_LED(void){
+
+	/* This TypeDef is a structure defined in the
+	 * ST's library and it contains all the properties
+	 * the corresponding peripheral has, such as output mode,
+	 * pullup / pulldown resistors etc.
+	 *
+	 * These structures are defined for every peripheral so
+	 * every peripheral has it's own TypeDef. The good news is
+	 * they always work the same so once you've got a hang
+	 * of it you can initialize any peripheral.
+	 *
+	 * The properties of the periperals can be found in the corresponding
+	 * header file e.g. stm32f4xx_gpio.h and the source file stm32f4xx_gpio.c
+	 */
+	GPIO_InitTypeDef GPIO_InitStruct;
+
+	/* This enables the peripheral clock to the GPIOD IO module
+	 * Every peripheral's clock has to be enabled
+	 *
+	 * The STM32F4 Discovery's User Manual and the STM32F407VGT6's
+	 * datasheet contain the information which peripheral clock has to be used.
+	 *
+	 * It is also mentioned at the beginning of the peripheral library's
+	 * source file, e.g. stm32f4xx_gpio.c
+	 */
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+
+	/* In this block of instructions all the properties
+	 * of the peripheral, the GPIO port in this case,
+	 * are filled with actual information and then
+	 * given to the Init function which takes care of
+	 * the low level stuff (setting the correct bits in the
+	 * peripheral's control register)
+	 *
+	 *
+	 * The LEDs on the STM324F Discovery are connected to the
+	 * pins PD12 thru PD15
+	 */
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_15 | GPIO_Pin_14 | GPIO_Pin_13 | GPIO_Pin_12; // we want to configure all LED GPIO pins
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_OUT; 		// we want the pins to be an output
+	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz; 	// this sets the GPIO modules clock speed
+	GPIO_InitStruct.GPIO_OType = GPIO_OType_PP; 	// this sets the pin type to push / pull (as opposed to open drain)
+	GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_NOPULL; 	// this sets the pullup / pulldown resistors to be inactive
+	GPIO_Init(GPIOD, &GPIO_InitStruct); 			// this finally passes all the values to the GPIO_Init function which takes care of setting the corresponding bits.
 }

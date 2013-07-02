@@ -23,10 +23,15 @@ void Delay(__IO uint32_t nTime);
 void init_LIS302DL();
 void init_USART1(uint32_t baudrate);
 void initPA15();
+void  initPB0();
+void setPA15(int val);
 void setPA15On();
+void setPB0(int val);
 void togglePA15();
 void initPA14();
 void setPA14Off();
+
+void init_LED(void);
 
 void initMotor(int motorId,bool forward);
 
