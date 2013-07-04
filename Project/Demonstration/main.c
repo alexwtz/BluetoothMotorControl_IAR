@@ -8,6 +8,11 @@ volatile char received_string[MAX_STRLEN+1]; // this will hold the recieved stri
 static u8 sendPosition = 0;
 
 static uint8_t lx,ly,rx,ry;
+bool init = true;
+//On = 2ms Off=1ms
+#define SPEED_100 60
+#define SPEED_MIDDLE 30
+#define SPEED_0 27
 
 //LIS302DL accelerometer
 LIS302DL_InitTypeDef  LIS302DL_InitStruct;
@@ -27,8 +32,15 @@ uint16_t Channel1Pulse = 0, Channel2Pulse = 0, Channel3Pulse = 0, Channel4Pulse 
 
 /* Method definition ---------------------------------------------------------*/
 
-
-
+int getSpeed(){
+  if(init){
+    return SPEED_MIDDLE;
+  }else{
+  float dif = (float)(SPEED_100- SPEED_0);
+  float interval = 100.0f/dif;
+  return SPEED_0+(((float)ly)/interval);
+}
+}
 int main(void) {
   
   unsigned char welcome_str[] = "xxyyzz\r\n";
@@ -61,9 +73,10 @@ int main(void) {
   int i = 30;
   int a = 1,b=0;
   while(1){
-  PWM_SetDC(1,60);//ON 2ms
-  PWM_SetDC(1,30);//OFF 1ms
+  PWM_SetDC(1,getSpeed());//ON 2ms
   }
+  
+  /*
   PWM_SetDC(1,30);
   while(1){
     i+=a;
@@ -127,6 +140,7 @@ int main(void) {
 
     
   }
+  */
   
     /* Disable SPI1 used to drive the MEMS accelerometre */
     SPI_Cmd(LIS302DL_SPI, DISABLE);
@@ -298,6 +312,7 @@ void USART1_IRQHandler(void){
   // check if the USART1 receive interrupt flag was set
   if( USART_GetITStatus(USART1, USART_IT_RXNE) ){
     
+    init = false;
     static uint8_t cnt = 0; // this counter is used to determine the string length
     char t = USART1->DR; // the character from the USART1 data register is saved in t
         
