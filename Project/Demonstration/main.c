@@ -3,16 +3,13 @@
 /* Private variables ---------------------------------------------------------*/
 //UART connection  
 static __IO uint32_t TimingDelay;
-void UARTSend(const unsigned char * pucBuffer, unsigned long ulCount);
-volatile char received_string[MAX_STRLEN+1]; // this will hold the recieved string
 static u8 sendPosition = 0;
+volatile char received_string[MAX_STRLEN+1]; // this will hold the recieved string
 
+//Command variables
 static uint8_t lx,ly,rx,ry;
+static int8_t motorCor[4];
 bool init = true;
-//On = 2ms Off=1ms
-#define SPEED_100 60
-#define SPEED_MIDDLE 30
-#define SPEED_0 27
 
 //LIS302DL accelerometer
 LIS302DL_InitTypeDef  LIS302DL_InitStruct;
@@ -23,7 +20,6 @@ uint8_t Buffer[6];
 //PWM
 TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 TIM_OCInitTypeDef  TIM_OCInitStructure;
-
 TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 TIM_OCInitTypeDef  TIM_OCInitStructure;
 TIM_BDTRInitTypeDef TIM_BDTRInitStructure;
@@ -32,65 +28,41 @@ uint16_t Channel1Pulse = 0, Channel2Pulse = 0, Channel3Pulse = 0, Channel4Pulse 
 
 /* Method definition ---------------------------------------------------------*/
 
-int getSpeed(){
-  if(init){
-    return SPEED_MIDDLE;
-  }else{
-  float dif = (float)(SPEED_100- SPEED_0);
-  float interval = 100.0f/dif;
-  return SPEED_0+(((float)ly)/interval);
-}
-}
 int main(void) {
   
-  unsigned char welcome_str[] = "xxyyzz\r\n";
   u8 loop = 1;
-
-  init_LED();
+  u8 i = 0;
   
+  //Variables initialization
+  motorCor[0] = 0;
+  motorCor[1] = 0;
+  motorCor[2] = 0;
+  motorCor[3] = 0;
+    
+  //Initialisation of the MCU
+  init_LED();
   initPB0();
   initPA15();
   init_USART1(BT_BAUD);
   init_LIS302DL();
   
-
-  
+  //PWM config (motor control)  
   TIM1_Config();
   TIM3_Config();
   PWM1_Config(100);
   PWM3_Config(100);
-  //setPA15On();
-  //togglePA15();
-
-  setPB0(0);
-  setPA15(1);
-
-  PWM_SetDC(1,500); //PE9 | PC6
-  PWM_SetDC(2,0); //PE11 | PC 7
-  PWM_SetDC(3,0); //PE13
-  PWM_SetDC(4,0); //PE14
-  
-  int i = 30;
-  int a = 1,b=0;
-  while(1){
-  PWM_SetDC(1,getSpeed());//ON 2ms
-  }
-  
-  /*
-  PWM_SetDC(1,30);
-  while(1){
-    i+=a;
-    if(i==60)a=-1;
-    if(i==30)a=1;
-    PWM_SetDC(1,i);
-//    togglePA15();
     
-// 
-//  while(loop){
+  while(loop){
+    //Update motor control
+    PWM_SetDC(1,getSpeed(1));//PE9 | PC6//ON 2ms
+    PWM_SetDC(2,10+getSpeed(2));//PE11 | PC 7
+    PWM_SetDC(3,20+getSpeed(3));//PE13
+    PWM_SetDC(4,30+getSpeed(4));//PE14
+    
     //Read and print the accelerometer values
     LIS302DL_Read(Buffer, LIS302DL_OUT_X_ADDR, 6);
     printf("%d, %d ,%d\n",Buffer[0],Buffer[2],Buffer[4]);
-    
+  
     if(sendPosition){
     //Send the command
     unsigned char cmd[] = "C1";
@@ -100,47 +72,12 @@ int main(void) {
     UARTSend(Buffer, sizeof(Buffer));
     }
     //Wait some time befor ending the loop
-    Delay(10000000);
-    if(i%2)GPIOD->BSRRL = 0x1000; // this sets LED1 (green)
+    if(i++%2)GPIOD->BSRRL = 0x1000; // this sets LED1 (green)
     else GPIOD->BSRRH = 0x1000;
     GPIOD->BSRRH = 0x8000;
-//			// if the number of button presses is greater than 4, reset the counter (we start counting from 0!)
-//			if(b > 2){
-//				b = 0;
-//			}
-//			else{ // if it's smaller than 4, switch the LEDs
-//
-//				switch(b){
-//
-//					case 0:
-//						GPIOD->BSRRL = 0x1000; // this sets LED1 (green)
-//						GPIOD->BSRRH = 0x8000; // this resets LED4 (blue)
-//						break;
-//
-//					case 1:
-//						GPIOD->BSRRL = 0x2000; // this sets LED2 (orange)
-//						GPIOD->BSRRH = 0x1000; // this resets LED1
-//						break;
-//
-//					case 2:
-//						GPIOD->BSRRL = 0x4000; // this sets LED3 (red)
-//						GPIOD->BSRRH = 0x2000; // this resets LED2
-//						break;
-//
-//					case 3:
-//						GPIOD->BSRRL = 0x8000; // this sets LED4
-//						GPIOD->BSRRH = 0x4000; // this resets LED3
-//						break;
-//					}
-//
-//				b++; // increase the counter every time the switch is pressed
-//			}
-			
-		
-
     
+    Delay(1000);
   }
-  */
   
     /* Disable SPI1 used to drive the MEMS accelerometre */
     SPI_Cmd(LIS302DL_SPI, DISABLE);
@@ -150,6 +87,20 @@ int main(void) {
 }
 
 /*- Normal method ------------------------------------------------------------*/
+
+/**
+*Method used to get the correct PWM frequency according to the command
+*@return PWM speed
+*/
+int getSpeed(int motorId){
+  if(init){
+    return SPEED_MIDDLE;
+  }else{
+  float dif = (float)(SPEED_100- SPEED_0);
+  float interval = 100.0f/dif;
+  return (int8_t)(motorCor[motorId-1]+SPEED_0+(((float)ly)/interval));
+  }
+}
 
 /**
 * Method that send a string to the UART.
@@ -334,6 +285,16 @@ void USART1_IRQHandler(void){
           }else if(received_string[cnt-3]=='Y'){
             ry = 100*(received_string[cnt-2]-48)+10*(received_string[cnt-1]-48)+received_string[cnt]-48;
           }
+        }else if(received_string[cnt-4]=='M'){
+          if(received_string[cnt-3]=='1'){
+            motorCor[0] = (received_string[cnt-2]=='N'?-1:1)*10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }else if(received_string[cnt-3]=='2'){
+            motorCor[1] = (received_string[cnt-2]=='N'?-1:1)*10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }else if(received_string[cnt-3]=='3'){
+            motorCor[2] = (received_string[cnt-2]=='N'?-1:1)*10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }else if(received_string[cnt-3]=='4'){
+            motorCor[3] = (received_string[cnt-2]=='N'?-1:1)*+10*(received_string[cnt-1]-48)+received_string[cnt]-48;
+          }
         }
       }
       
@@ -410,12 +371,6 @@ void TIM3_Config()
   GPIO_PinAFConfig(GPIOB, GPIO_PinSource1, GPIO_AF_TIM3);
 }
 
-
-
-
-
-
-
   void PWM_SetDC(uint16_t channel,uint16_t dutycycle)
 {
   if (channel == 1)
@@ -434,7 +389,7 @@ void TIM3_Config()
     TIM3->CCR3 = dutycycle;
     TIM1->CCR3 = dutycycle;
   }
-  else
+  else if (channel == 4)
   {
     TIM3->CCR4 = dutycycle;
     TIM1->CCR4 = dutycycle;
@@ -541,21 +496,6 @@ void PWM1_Config(int period)
      based on this variable will be incorrect.    
   ----------------------------------------------------------------------- */  
   
-//  /* Compute the value to be set in ARR register to generate signal frequency at 17.57 Khz */
-//  TimerPeriod = (SystemCoreClock / 17570) - 1;
-//
-//  /* Compute CCR1 value to generate a duty cycle at 50% for channel 1 */
-//  Channel1Pulse = (uint16_t) (((uint32_t) 5 * (TimerPeriod - 1)) / 10);
-//
-//  /* Compute CCR2 value to generate a duty cycle at 25%  for channel 2 */
-//  Channel2Pulse = (uint16_t) (((uint32_t) 25 * (TimerPeriod - 1)) / 100);
-//
-//  /* Compute CCR3 value to generate a duty cycle at 12.5%  for channel 3 */
-//  Channel3Pulse = (uint16_t) (((uint32_t) 125 * (TimerPeriod - 1)) / 1000);
-//  
-//  /* Compute CCR3 value to generate a duty cycle at 12.5%  for channel 3 */
-//  Channel4Pulse = (uint16_t) (((uint32_t) 125 * (TimerPeriod - 1)) / 1000);
-
   /* Time Base configuration */
     uint16_t PrescalerValue = 0;
   /* Compute the prescaler value */
@@ -612,7 +552,7 @@ void PWM3_Config(int period)
 {
   uint16_t PrescalerValue = 0;
   /* Compute the prescaler value */
-  PrescalerValue = (uint16_t) ((SystemCoreClock /2) / 28000000) - 1;
+  PrescalerValue = (uint16_t) ((SystemCoreClock /4) / 16000) - 1;
   /* Time base configuration */
   TIM_TimeBaseStructure.TIM_Period = period;
   TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
