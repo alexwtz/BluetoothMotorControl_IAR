@@ -14,6 +14,8 @@
 #define BT_BAUD 9200
 #define MAX_STRLEN 20 // this is the maximum string length of our string in characters
 
+#define CONNECTED_LENGTH 20
+
 //On = 2ms Off=1ms
 #define SPEED_100 60
 #define SPEED_MIDDLE 30
@@ -33,6 +35,7 @@ void initPA14();
 void init_LED(void);
 void TIM3_Config();
 void TIM1_Config();
+void init_BT_serial();
 
 //Config
 void PWM1_Config(int period);

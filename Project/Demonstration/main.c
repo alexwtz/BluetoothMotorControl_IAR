@@ -17,6 +17,11 @@ LIS302DL_FilterConfigTypeDef LIS302DL_FilterStruct;
 __IO int8_t X_Offset, Y_Offset, Z_Offset  = 0x00;
 uint8_t Buffer[6];
 
+//Bt connection
+uint8_t connected[CONNECTED_LENGTH];
+uint8_t index = 0;
+bool isConnected = false;
+
 //PWM
 TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 TIM_OCInitTypeDef  TIM_OCInitStructure;
@@ -31,7 +36,10 @@ uint16_t Channel1Pulse = 0, Channel2Pulse = 0, Channel3Pulse = 0, Channel4Pulse 
 int main(void) {
   
   u8 loop = 1;
-  u8 i = 0;
+  u8 i = 0, j = 0, sum = 0;
+  for(;j<CONNECTED_LENGTH;j++){
+    connected[j] = 0;
+  }
   
   //Variables initialization
   motorCor[0] = 0;
@@ -41,9 +49,8 @@ int main(void) {
     
   //Initialisation of the MCU
   init_LED();
-  initPB0();
-  initPA15();
-  init_USART1(BT_BAUD);
+  //initPB0();
+  init_BT_serial();
   init_LIS302DL();
   
   //PWM config (motor control)  
@@ -61,7 +68,7 @@ int main(void) {
     
     //Read and print the accelerometer values
     LIS302DL_Read(Buffer, LIS302DL_OUT_X_ADDR, 6);
-    printf("%d, %d ,%d\n",Buffer[0],Buffer[2],Buffer[4]);
+    //printf("%d, %d ,%d\n",Buffer[0],Buffer[2],Buffer[4]);
   
     if(sendPosition){
     //Send the command
@@ -76,7 +83,32 @@ int main(void) {
     else GPIOD->BSRRH = 0x1000;
     GPIOD->BSRRH = 0x8000;
     
-    Delay(1000);
+    if(GPIOA->IDR & 0x8000){
+      //We must be connected if we stay at 1
+      GPIOD->BSRRL = 0x2000;
+      connected[index]=1;
+    }else{
+      //We got a zero, we may be disconnected
+      GPIOD->BSRRH = 0x2000;
+      connected[index]=0;
+    } 
+    index++;
+    if(index>CONNECTED_LENGTH)index=0;
+    sum = 0;
+    for(j=0;j<CONNECTED_LENGTH;j++)sum += connected[j];
+    if(sum < CONNECTED_LENGTH){
+     if(isConnected){
+      isConnected = false;
+      printf("Disconnected\n");
+     }
+    }else{
+      if(!isConnected){
+      isConnected = true;
+      printf("Connected\n");
+      }
+    }
+      
+    Delay(1000000);
   }
   
     /* Disable SPI1 used to drive the MEMS accelerometre */
@@ -100,6 +132,14 @@ int getSpeed(int motorId){
   float interval = 100.0f/dif;
   return (int8_t)(motorCor[motorId-1]+SPEED_0+(((float)ly)/interval));
   }
+}
+
+/**
+*Method called to init the gpio to communicate with the bluetooth serial module
+*/
+void init_BT_serial(){
+  initPA15();
+  init_USART1(BT_BAUD);
 }
 
 /**
@@ -325,6 +365,13 @@ void initPB0(){
   GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   GPIO_Init(GPIOB, &GPIO_InitStructure);
+  
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
 }
 
 void initPA15(){
@@ -335,9 +382,9 @@ void initPA15(){
   
   /* Configure the GPIO_LED pin */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
 }
