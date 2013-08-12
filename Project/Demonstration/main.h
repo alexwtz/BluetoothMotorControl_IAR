@@ -6,6 +6,7 @@
 #include "stm32f4xx_conf.h"
 #include "stm32f4_discovery_lis302dl.h"
 #include <stdio.h>
+#include "MPU6050.h"
 
 /* Exported types ------------------------------------------------------------*/
 
@@ -22,8 +23,6 @@
 #define SPEED_0 27
 
 /* Exported macro ------------------------------------------------------------*/
-
-typedef enum { false = 0, true = 1 } bool; 
 
 /* Exported functions ------------------------------------------------------- */
 //Init
@@ -49,7 +48,7 @@ void setPB0(int val);
 void togglePA15();
 void setPA14Off();
 void UARTSend(const unsigned char * pucBuffer, unsigned long ulCount);
-int getSpeed(int motorId);
+int8_t getSpeed(int8_t motorId,int8_t horizon);
 uint32_t LIS302DL_TIMEOUT_UserCallback(void);
 
 #endif /* __MAIN_H */
