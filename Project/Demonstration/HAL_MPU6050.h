@@ -43,7 +43,7 @@ THE SOFTWARE.
 * @{
 */
 
-//#define MPU6050_I2C                  I2C2
+#define MPU6050_I2C                  I2C2
 //#define MPU6050_I2C_RCC_Periph       RCC_APB1Periph_I2C2
 //#define MPU6050_I2C_Port             GPIOB
 //#define MPU6050_I2C_SCL_Pin          GPIO_Pin_10

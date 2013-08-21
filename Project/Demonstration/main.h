@@ -4,8 +4,10 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_conf.h"
-#include "stm32f4_discovery_lis302dl.h"
 #include <stdio.h>
+#include <time.h>
+#include <math.h>
+#include <string.h>
 #include "MPU6050.h"
 
 /* Exported types ------------------------------------------------------------*/
@@ -26,13 +28,13 @@
 
 /* Exported functions ------------------------------------------------------- */
 //Init
-void init_LIS302DL();
 void init_USART1(uint32_t baudrate);
 void initPA15();
 void  initPB0();
 void initPA14();
 void init_LED(void);
 void TIM3_Config();
+void TIM6_Config();
 void TIM1_Config();
 void init_BT_serial();
 
@@ -49,7 +51,15 @@ void togglePA15();
 void setPA14Off();
 void UARTSend(const unsigned char * pucBuffer, unsigned long ulCount);
 int8_t getSpeed(int8_t motorId,int8_t horizon);
-uint32_t LIS302DL_TIMEOUT_UserCallback(void);
+
+float pid_calculate(float target, float actual, uint8_t key);
+float kalman_calculate(float acc, float gyro, uint8_t looptime, uint8_t key);
+uint8_t parseFloat(float f);
+void Calibrate_Gyros();
+void Get_Accel_Angles(float *xangle,float *yangle);
+void Zero_Sensors();
+void getAngles(float *a,float *b);
+void analyseString(uint8_t cnt);
 
 #endif /* __MAIN_H */
 

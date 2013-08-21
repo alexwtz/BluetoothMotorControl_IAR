@@ -401,7 +401,7 @@ void MPU6050_SetFullScaleGyroRange(uint8_t range);
 // ACCEL_CONFIG register
 uint8_t MPU6050_GetFullScaleAccelRange();
 void MPU6050_SetFullScaleAccelRange(uint8_t range);
-
+void MPU6050_SetLowPassFilter(uint8_t range);
 // PWR_MGMT_1 register
 bool MPU6050_GetSleepModeStatus();
 void MPU6050_SetSleepModeStatus(FunctionalState NewState);

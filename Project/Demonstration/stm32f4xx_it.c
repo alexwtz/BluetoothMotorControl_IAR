@@ -31,6 +31,10 @@
 #include "stm32f4xx_it.h"
 #include "main.h"
 
+extern uint16_t tick;
+extern uint8_t second;
+extern uint8_t minute;
+    
 /** @addtogroup Template_Project
   * @{
   */
@@ -141,7 +145,20 @@ void PendSV_Handler(void)
   */
 void SysTick_Handler(void)
 {
-  TimingDelay_Decrement();
+  switch (tick++) {
+        case 0:
+            // task 0 here
+            break;
+        case 1:
+            // task 1 here
+            break;
+        // and so on
+        case 9999:
+            tick = 0;
+            second = (second < 59) ? (second + 1) : 0;
+            minute = (second == 0) ? ((minute < 59) ? (minute + 1) : 0) : minute;
+            break;  
+    }  
 }
 
 /******************************************************************************/
