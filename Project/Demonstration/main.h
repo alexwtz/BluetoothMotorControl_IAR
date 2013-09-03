@@ -20,12 +20,19 @@
 #define CONNECTED_LENGTH 20
 
 //On = 2ms Off=1ms
-#define SPEED_100 60
-#define SPEED_MIDDLE 30
-#define SPEED_0 27
+#define SPEED_100 6000
+#define SPEED_MIDDLE 3000
+#define SPEED_0 2700
+
+#define LX 0xFF
+#define LY 0xFE
+#define RX 0xFD
+#define RY 0xFC
+#define ASK_POS 0xFB
+#define STOP_POS 0xFA
 
 /* Exported macro ------------------------------------------------------------*/
-
+static float interval = 100.0f / ((float) (SPEED_100 - SPEED_0));
 /* Exported functions ------------------------------------------------------- */
 //Init
 void init_USART1(uint32_t baudrate);
@@ -50,7 +57,7 @@ void setPB0(int val);
 void togglePA15();
 void setPA14Off();
 void UARTSend(const unsigned char * pucBuffer, unsigned long ulCount);
-int8_t getSpeed(int8_t motorId,int8_t horizon);
+int8_t getSpeed(float value);
 
 float pid_calculate(float target, float actual, uint8_t key);
 float kalman_calculate(float acc, float gyro, uint8_t looptime, uint8_t key);

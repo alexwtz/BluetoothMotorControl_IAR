@@ -6,14 +6,12 @@
 #endif
 
 /* Private variables ---------------------------------------------------------*/
-
-
-#define RC_CAP 35 /*!< RC values lower than this cap should be ignored */
-
 #define RC_SPEED 0 /*!< RC Speed channel */
 #define RC_PITCH 1 /*!< RC Pitch channel */
 #define RC_ROLL  2 /*!< RC Roll channel */
 #define RC_YAW   3 /*!< RC Yaw channel */
+
+#define INCREASE_FACTOR 1
 
 #define RC_SENSITIVITY 2.0 /*!< Sensitivity of the RC channels for Pitch and Roll */
 
@@ -37,6 +35,11 @@
 #define PID_ERROR_CAP       20.0    /*!< Initial cap that invalidates errors */
 
 #define PID_SENSITIVITY     5000.0  /*!< Sensitivity of the PID controller (lower value = higher sensitivity) */
+
+#define CMD_HISTORY_SIZE 20
+#define MAX_CMD_SIZE 16
+
+
 
 int16_t ACC_X_OFFSET = 0; /*!< The Offset for the X accelerometer */
 int16_t ACC_Y_OFFSET = 0 ;/*!< The Offset for the Y accelerometer */
@@ -76,12 +79,12 @@ float pid_error_cap = PID_ERROR_CAP; /*!< An error below this cap invalidates al
 float kalman[3] = { 0, 0, 0 }; /*!< Kalman Filter results */
 float pid[4] = { 0, 0, 0, 0 }; /*!< Calculated speed values */
 
-uint8_t rc_channel[4] = { 0, 0, 0, 0 }; /*!< Values of the RC channels */
+uint16_t rc_channel[4] = { 0, 0, 0, 0 }; /*!< Values of the RC channels */
 
 //UART connection
 static __IO uint32_t TimingDelay;
-char received_string[300]; // this will hold the received string
-char rcvd[70][4];
+char received_string[MAX_CMD_SIZE]; // this will hold the received string
+char rcvd[CMD_HISTORY_SIZE][4];
 
 static float DIVISION_FACT = 50.0;
 
@@ -91,7 +94,7 @@ bool init = TRUE;
 uint8_t Buffer[6];
 int16_t horizon[3] = { 2, 254, 53 };
 int8_t motorHor[3];
-int8_t motorSpeed[4];
+int16_t motorSpeed[4];
 
 //Bt connection
 uint8_t connected[CONNECTED_LENGTH];
@@ -113,12 +116,12 @@ uint16_t tick   = 0;
 uint8_t second = 0;
 uint8_t minute = 0;
 
+static int16_t rawData[100][7];
 
 /* Method definition ---------------------------------------------------------*/
  
 
 int main(void) {
-        
         //Enable the systick to count the looptime
         SysTick_Config(SystemCoreClock/10000);
         uint64_t lastlooptime = 0; /*!< Timestamp of the last loop */
@@ -136,8 +139,8 @@ int main(void) {
         //PWM config (motor control)
 	TIM1_Config();
 	TIM3_Config();
-	PWM1_Config(100);
-	PWM3_Config(100);
+	PWM1_Config(10000);
+	PWM3_Config(10000);
         
         //MPU6050 initialization
         MPU6050_I2C_Init();
@@ -160,7 +163,83 @@ int main(void) {
 
         //Initialize the bluetooth
 	init_BT_serial();        
-
+        float tmp = 0,min=9999,max=0;
+        float xangle,yangle;
+        
+//        while(1){
+//          PWM_SetDC(1,tmp);
+//          tmp+=100;
+//          printf("%d\r\n",tmp);
+//          Delay(10);
+//        }
+        
+        
+//        while(1){
+//          for(int i = 0; i<100;i++){
+//            MPU6050_GetRawAccelGyro(AccelGyro);
+//            for(int j = 0;j<7;j++)rawData[i][j] = AccelGyro[j];
+//          }
+//          tmp = 0;
+//          min = 9999;
+//          max = 0;
+//          for(int i = 0; i<100;i++){
+//            tmp+=rawData[i][ACC_X];
+//            if(rawData[i][ACC_X]<min)min = rawData[i][ACC_X];
+//            if(rawData[i][ACC_X]>max)max = rawData[i][ACC_X];
+//          }
+//          printf("ACC_X: %.2f %.2f %.2f\r\n",tmp/100.0,min, max);
+//          tmp = 0;
+//          min = 9999;
+//          max = 0;
+//          for(int i = 0; i<100;i++){
+//            tmp+=rawData[i][ACC_Y];
+//            if(rawData[i][ACC_Y]<min)min = rawData[i][ACC_Y];
+//            if(rawData[i][ACC_Y]>max)max = rawData[i][ACC_Y];
+//          }
+//          printf("ACC_Y: %.2f %.2f %.2f\r\n",tmp/100.0,min, max);
+//          tmp = 0;
+//          min = 9999;
+//          max = 0;
+//          for(int i = 0; i<100;i++){
+//            tmp+=rawData[i][ACC_Z];
+//            if(rawData[i][ACC_Z]<min)min = rawData[i][ACC_Z];
+//            if(rawData[i][ACC_Z]>max)max = rawData[i][ACC_Z];
+//          }
+//          printf("ACC_Z: %.2f %.2f %.2f\r\n",tmp/100.0,min, max);
+//          tmp = 0;
+//          min = 9999;
+//          max = 0;
+//          for(int i = 0; i<100;i++){
+//            tmp+=rawData[i][GYRO_X];
+//            if(rawData[i][GYRO_X]<min)min = rawData[i][GYRO_X];
+//            if(rawData[i][GYRO_X]>max)max = rawData[i][GYRO_X];
+//          }
+//          printf("GYR_X: %.2f %.2f %.2f\r\n",tmp/100.0,min, max);
+//          tmp = 0;
+//          min = 9999;
+//          max = 0;
+//          for(int i = 0; i<100;i++){
+//            tmp+=rawData[i][GYRO_Y];
+//            if(rawData[i][GYRO_Y]<min)min = rawData[i][GYRO_Y];
+//            if(rawData[i][GYRO_Y]>max)max = rawData[i][GYRO_Y];
+//          }
+//          printf("GYR_Y: %.2f %.2f %.2f\r\n",tmp/100.0,min, max);
+//          tmp = 0;
+//          min = 9999;
+//          max = 0;
+//          for(int i = 0; i<100;i++){
+//            tmp+=rawData[i][GYRO_Z];
+//            if(rawData[i][GYRO_Z]<min)min = rawData[i][GYRO_Z];
+//            if(rawData[i][GYRO_Z]>max)max = rawData[i][GYRO_Z];
+//          }
+//          printf("GYR_Z: %.2f %.2f %.2f\r\n",tmp/100.0,min, max);
+          
+          //printf("Acceleration : AccX:%.7d, AccY:%.7d ,AccZ:%.7d\r\n", AccelGyro[ACC_X], AccelGyro[ACC_Y], AccelGyro[ACC_Z]);
+            //printf("Angular      : GyrX:%.7d, GyrY:%.7d ,GyrZ:%.7d\r\n", AccelGyro[GYRO_X], AccelGyro[GYRO_Y], AccelGyro[GYRO_Z]);
+            //getAngles(&xangle,&yangle);
+            //printf("Angle x: %.5f y: %.5f\r\n",xangle,yangle);
+ //       }
+        
         //Main loop
         while (1) {
                 //Compute the time of the loop execution
@@ -170,6 +249,11 @@ int main(void) {
           
                   //Read MPU6050
                 MPU6050_GetRawAccelGyro(AccelGyro);
+                
+                //printf("Acceleration : AccX:%.7d, AccY:%.7d ,AccZ:%.7d\r\n", AccelGyro[ACC_X], AccelGyro[ACC_Y], AccelGyro[ACC_Z]);
+                //printf("Angular      : GyrX:%.7d, GyrY:%.7d ,GyrZ:%.7d\r\n", AccelGyro[GYRO_X], AccelGyro[GYRO_Y], AccelGyro[GYRO_Z]);
+                //getAngles(&xangle,&yangle);
+                //printf("Angle x: %.5f y: %.5f\r\n",xangle,yangle);
                 
                 AccelGyro[GYRO_X] -= GYRO_XOUT_OFFSET;
                 AccelGyro[GYRO_Y] -= GYRO_YOUT_OFFSET;
@@ -183,14 +267,14 @@ int main(void) {
                 pid[ACC_Z] = pid_calculate(0.0, kalman_calculate((float) AccelGyro[ACC_Z], (float) AccelGyro[GYRO_Z], looptime, 2), 2);
                 
                 /* Calculate speeds */
-        if (rc_channel[RC_SPEED] > RC_CAP) {
-            motorSpeed[0] = parseFloat(rc_channel[RC_SPEED] * ((2.0 - pid[ACC_X]) * pid[ACC_Y]));
-            motorSpeed[1] = parseFloat(rc_channel[RC_SPEED] * (pid[ACC_X] * (2.0 - pid[ACC_Y])));
-            motorSpeed[2] = parseFloat(rc_channel[RC_SPEED] * (pid[ACC_X] * pid[ACC_Y]));
-            motorSpeed[3] = parseFloat(rc_channel[RC_SPEED] * (2.0 - (pid[ACC_X] * pid[ACC_Y])));
+        if (rc_channel[RC_SPEED] > 0) {
+            motorSpeed[0] = rc_channel[RC_SPEED] * ((2.0 - pid[ACC_X]) * pid[ACC_Y])/interval + SPEED_0;
+            motorSpeed[1] = rc_channel[RC_SPEED] * (pid[ACC_X] * (2.0 - pid[ACC_Y]))/interval + SPEED_0;
+            motorSpeed[2] = rc_channel[RC_SPEED] * (pid[ACC_X] * pid[ACC_Y])/interval + SPEED_0;
+            motorSpeed[3] = rc_channel[RC_SPEED] * (2.0 - (pid[ACC_X] * pid[ACC_Y]))/interval + SPEED_0;
         } else {
             for (int i = 0; i < 4; ++i) {
-                motorSpeed[i] = 0;
+                motorSpeed[i] = SPEED_0;
             }
         }
         
@@ -201,18 +285,17 @@ int main(void) {
 		PWM_SetDC(4, motorSpeed[3]); //PE14
                 
 #ifdef DEB
-                printf("motorSpeed %d %d %d %d\n", motorSpeed[0], motorSpeed[1], motorSpeed[2], motorSpeed[3]);
-                printf("Acceleration : AccX:%.7d, AccY:%.7d ,AccZ:%.7d\r\n", AccelGyro[ACC_X], AccelGyro[ACC_Y], AccelGyro[ACC_Z]);
-                printf("Angular      : GyrX:%.7d, GyrY:%.7d ,GyrZ:%.7d\r\n", AccelGyro[GYRO_X], AccelGyro[GYRO_Y], AccelGyro[GYRO_Z]);
-                printf("Temperature  : %.7d\r\n", AccelGyro[TEMP]);
+//                printf("motorSpeed %d %d %d %d\n", motorSpeed[0], motorSpeed[1], motorSpeed[2], motorSpeed[3]);
+//                printf("Acceleration : AccX:%.7d, AccY:%.7d ,AccZ:%.7d\r\n", AccelGyro[ACC_X], AccelGyro[ACC_Y], AccelGyro[ACC_Z]);
+//                printf("Angular      : GyrX:%.7d, GyrY:%.7d ,GyrZ:%.7d\r\n", AccelGyro[GYRO_X], AccelGyro[GYRO_Y], AccelGyro[GYRO_Z]);
+//                printf("Temperature  : %.7d\r\n", AccelGyro[TEMP]);
                 
-		printf("%d, %d ,%d\r\n", motorHor[0], motorHor[1], motorHor[2]);
-		printf("motor1: %d\r\n", getSpeed(1, motorHor[0]));
-		printf("motor2: %d\r\n", getSpeed(2, motorHor[1]));
-		printf("motor3: %d\r\n", getSpeed(3, motorHor[1]));
-		printf("motor4: %d\r\n", getSpeed(4, motorHor[0]));
-                if(isConnected)printf("Connected\n");
-                else printf("Disconnected\n");
+		printf("motor1: %d | ", getSpeed(1, motorSpeed[0]));
+		printf("motor2: %d | ", getSpeed(2, motorSpeed[1]));
+		printf("motor3: %d | ", getSpeed(3, motorSpeed[1]));
+		printf("motor4: %d\r\n", getSpeed(4, motorSpeed[0]));
+//                if(isConnected)printf("Connected\n");
+//                else printf("Disconnected\n");
 #endif
 		
 //		 if(sendPosition){
@@ -261,30 +344,7 @@ int main(void) {
 
 /*- Normal method ------------------------------------------------------------*/
 
-/**
- *Method used to get the correct PWM frequency according to the command
- *@return PWM speed
- */
-int8_t getSpeed(int8_t motorId, int8_t horizon) {
-	if (init) {
-		return SPEED_MIDDLE;
-	} else {
-		float dif = (float) (SPEED_100 - SPEED_0);
-		float interval = 100.0f / dif;
-		float toReturn = SPEED_0 + (((float) rc_channel[1]) / interval);
-		switch(motorId){
-		case 3:
-		case 4:
-			toReturn -=horizon/DIVISION_FACT;
-			break;
-		case 1:
-		case 2:
-			toReturn += horizon/DIVISION_FACT;
-			break;
-		}
-		return (int8_t)toReturn;
-	}
-}
+
 
 /**
  * Method that send a string to the UART.
@@ -305,62 +365,31 @@ void UARTSend(const unsigned char *pucBuffer, unsigned long ulCount) {
 
 }
 
-void analyseString(uint8_t cnt){
-               if (cnt == 5) {
-				if (received_string[cnt - 5] == 'L') {
-					if (received_string[cnt - 4] == 'X') {
-						rc_channel[0] = 100 * (received_string[cnt - 3] - 48)
-								+ 10 * (received_string[cnt - 2] - 48)
-								+ received_string[cnt - 1] - 48;
-					} else if (received_string[cnt - 4] == 'Y') {
-						rc_channel[1] = 100 * (received_string[cnt - 3] - 48)
-								+ 10 * (received_string[cnt - 2] - 48)
-								+ received_string[cnt - 1] - 48;
-					}
-				} else if (received_string[cnt - 5] == 'R') {
-					if (received_string[cnt - 4] == 'X') {
-						rc_channel[2] = 100 * (received_string[cnt - 3] - 48)
-								+ 10 * (received_string[cnt - 2] - 48)
-								+ received_string[cnt - 1] - 48;
-					} else if (received_string[cnt - 4] == 'Y') {
-						rc_channel[3] = 100 * (received_string[cnt - 3] - 48)
-								+ 10 * (received_string[cnt - 2] - 48)
-								+ received_string[cnt - 1] - 48;
-					}
-				}
-			}
-                        else if ((received_string[cnt - 1] == 0x53) && (cnt == 17)) {
-				//End of motor correction
-				/*
-                                motorCor[0] = 10 * (received_string[cnt - 15] - 48)
-						+ received_string[cnt - 14] - 48;
-				motorCor[1] = 10 * (received_string[cnt - 11] - 48)
-						+ received_string[cnt - 10] - 48;
-				motorCor[2] = 10 * (received_string[cnt - 7] - 48)
-						+ received_string[cnt - 6] - 48;
-				motorCor[3] = +10 * (received_string[cnt - 3] - 48)
-						+ received_string[cnt - 2] - 48;
-			
-                          if (received_string[cnt - 16] == 0x4E)
-					motorCor[0] *= -1;
-				if (received_string[cnt - 12] == 0x4E)
-					motorCor[1] *= -1;
-				if (received_string[cnt - 8] == 0x4E)
-					motorCor[2] *= -1;
-				if (received_string[cnt - 4] == 0x4E)
-					motorCor[3] *= -1;
-*/
-			}
-                        
-//                        else if (received_string[cnt - 1] == 'C' && t == '1')
-//				sendPosition = 1;
-//			else if (received_string[cnt - 1] == 'C' && t == '0')
-//				sendPosition = 0;
-
-			
-		}
-        
-
+void analyseString(uint8_t idx){
+    switch(rcvd[idx][0]){
+    case LX:
+      rc_channel[RC_YAW] = rcvd[idx][1];
+      break;
+    case RX:
+      rc_channel[RC_PITCH] = rcvd[idx][1];
+      break;
+    case ASK_POS:
+      //TODO
+       break;
+    case STOP_POS:
+      //TODO
+      break;
+    }
+    switch(rcvd[idx][2]){
+    case LY:
+      rc_channel[RC_SPEED] = rcvd[idx][3];
+       rc_channel[RC_SPEED]*=INCREASE_FACTOR;
+      break;
+    case RY:
+      rc_channel[RC_ROLL] = rcvd[idx][3];
+      break;
+    }
+}
 
 void setPB0(int val) {
 	if (val)
@@ -470,7 +499,7 @@ float pid_calculate(float target, float actual, uint8_t key) {
  */
 float kalman_calculate(float acc, float gyro, uint8_t looptime, uint8_t key) {
 
-    float kalman_dt = (float)looptime;///1000;
+    float kalman_dt = (float)looptime/1000;
 
     kalman_angle[key] += kalman_dt * (gyro - kalman_bias[key]);
     kalman_P_00[key] += -kalman_dt * (kalman_P_10[key] + kalman_P_01[key]) + Q_ANGLE * kalman_dt;
@@ -529,12 +558,14 @@ void Calibrate_Gyros()
         ACC_Y_OFFSET = ACC_Y_OFFSET/1000;
         ACC_Z_OFFSET = ACC_Z_OFFSET/1000;
  
+#ifdef DEB
 	printf("Gyro X offset: %d\n", GYRO_XOUT_OFFSET);
 	printf("Gyro Y offset: %d\n", GYRO_YOUT_OFFSET);
 	printf("Gyro Z offset: %d\n", GYRO_ZOUT_OFFSET);
         printf("Acc X offset: %d\n", ACC_X_OFFSET);
 	printf("Acc Y offset: %d\n", ACC_Y_OFFSET);
 	printf("Acc Z offset: %d\n", ACC_Z_OFFSET);
+#endif
 }	
 
 //Converts the already acquired accelerometer data into 3D euler angles
@@ -562,8 +593,10 @@ void Zero_Sensors()
 //	COMPLEMENTARY_YANGLE = BUFFER_YANGLE/100.0;
 	BUFFER_XANGLE = BUFFER_XANGLE/100.0;
 	BUFFER_YANGLE = BUFFER_YANGLE/100.0;
+#ifdef DEB
         printf("Gyro X angle : %f\n", BUFFER_XANGLE);
 	printf("Gyro Y angle : %f\n", BUFFER_YANGLE);
+#endif
 }
 
 void getAngles(float *a,float *b){
@@ -729,7 +762,7 @@ void PWM1_Config(int period) {
 	/* Time Base configuration */
 	uint16_t PrescalerValue = 0;
 	/* Compute the prescaler value */
-	PrescalerValue = (uint16_t)((SystemCoreClock / 2) / 16000) - 1;
+	PrescalerValue = (uint16_t)((SystemCoreClock / 2) / 1600000) - 1;
 
 	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
@@ -781,7 +814,7 @@ void PWM1_Config(int period) {
 void PWM3_Config(int period) {
 	uint16_t PrescalerValue = 0;
 	/* Compute the prescaler value */
-	PrescalerValue = (uint16_t)((SystemCoreClock / 4) / 16000) - 1;
+	PrescalerValue = (uint16_t)((SystemCoreClock / 4) / 1600000) - 1;
 	/* Time base configuration */
 	TIM_TimeBaseStructure.TIM_Period = period;
 	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
@@ -965,12 +998,13 @@ void USART1_IRQHandler(void) {
 		static uint8_t cnt = 0; // this counter is used to determine the string length
 		char t = USART1->DR; // the character from the USART1 data register is saved in t
                 received_string[cnt] = t;
-			cnt++;
-                        if(cnt >= 4){
-                          cnt = 0;
-		
+		cnt++;
+                if(cnt >= 4){
                   memcpy(&rcvd[k],&received_string,4);
+                  analyseString(k);
+                  cnt = 0;
                   k++;
+                  if(k >= CMD_HISTORY_SIZE)k=0;
                 }
                 //check if the received character is not the LF character (used to determine end of string) 
 		// or the if the maximum string length has been been reached 

@@ -1,5 +1,5 @@
 [DebugChecksum]
-Checksum=986595850
+Checksum=179468566
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -35,16 +35,18 @@ ITMportsTermIO=0
 ITMportsLogFile=0
 ITMlogFile=$PROJ_DIR$\ITM.log
 [array_types]
-Fmt0=char[4]	3	0
-Fmt1=int8_t[4]	3	0
-Fmt2=uint8_t[4]	3	0
+Fmt0=char[300]	3	0
+Fmt1=char[4]	3	0
+Fmt2=int8_t[4]	3	0
+Fmt3=uint8_t[4]	3	0
 [watch_formats]
 Fmt0={W}0:cnt	3	0
-Fmt1={W}0:looptime	3	0
-Fmt2={W}0:lx	3	0
-Fmt3={W}0:ly	3	0
-Fmt4={W}0:motorCor	0	1
-Fmt5={W}0:second	3	0
+Fmt1={W}0:idx	3	0
+Fmt2={W}0:looptime	3	0
+Fmt3={W}0:lx	3	0
+Fmt4={W}0:ly	3	0
+Fmt5={W}0:motorCor	0	1
+Fmt6={W}0:second	3	0
 [DataLog]
 LogEnabled=0
 SumEnabled=0
@@ -58,11 +60,6 @@ GraphEnabled=0
 ShowTimeLog=1
 ShowTimeSum=1
 SumSortOrder=0
-[Disassemble mode]
-mode=0
-[Breakpoints2]
-Bp0=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\main.c}.196.5" 0 0 1 "" 0 "" 0
-Count=1
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""
@@ -70,9 +67,6 @@ Category=_ 0
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""
-[Aliases]
-Count=0
-SuppressDialog=0
 [Trace2]
 Enabled=0
 ShowSource=0
@@ -93,3 +87,10 @@ Mode=3
 Graph=0
 Symbiont=0
 Exclusions=
+[Disassemble mode]
+mode=0
+[Breakpoints2]
+Count=0
+[Aliases]
+Count=0
+SuppressDialog=0
