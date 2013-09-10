@@ -1,5 +1,5 @@
 [DebugChecksum]
-Checksum=179468566
+Checksum=-211067473
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -90,7 +90,8 @@ Exclusions=
 [Disassemble mode]
 mode=0
 [Breakpoints2]
-Count=0
+Bp0=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\main.c}.314.3" 0 0 1 "" 0 "" 0
+Count=1
 [Aliases]
 Count=0
 SuppressDialog=0

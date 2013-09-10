@@ -11,8 +11,6 @@
 #define RC_ROLL  2 /*!< RC Roll channel */
 #define RC_YAW   3 /*!< RC Yaw channel */
 
-#define INCREASE_FACTOR 1
-
 #define RC_SENSITIVITY 2.0 /*!< Sensitivity of the RC channels for Pitch and Roll */
 
 #define ACC_X   0   /*!< X accelerator value */
@@ -38,8 +36,6 @@
 
 #define CMD_HISTORY_SIZE 20
 #define MAX_CMD_SIZE 16
-
-
 
 int16_t ACC_X_OFFSET = 0; /*!< The Offset for the X accelerometer */
 int16_t ACC_Y_OFFSET = 0 ;/*!< The Offset for the Y accelerometer */
@@ -86,8 +82,6 @@ static __IO uint32_t TimingDelay;
 char received_string[MAX_CMD_SIZE]; // this will hold the received string
 char rcvd[CMD_HISTORY_SIZE][4];
 
-static float DIVISION_FACT = 50.0;
-
 //Command variables
 //static uint8_t lx, ly, rx, ry;
 bool init = TRUE;
@@ -116,7 +110,7 @@ uint16_t tick   = 0;
 uint8_t second = 0;
 uint8_t minute = 0;
 
-static int16_t rawData[100][7];
+//static int16_t rawData[100][7];
 
 /* Method definition ---------------------------------------------------------*/
  
@@ -126,6 +120,7 @@ int main(void) {
         SysTick_Config(SystemCoreClock/10000);
         uint64_t lastlooptime = 0; /*!< Timestamp of the last loop */
         uint8_t looptime = 0; /*!< Loop time in ms */
+        float mSpeed;
 	
         u8 i = 0, j = 0, sum = 0,time = 0;
 	//Init the array to test the bluetooth connexion status
@@ -163,9 +158,9 @@ int main(void) {
 
         //Initialize the bluetooth
 	init_BT_serial();        
-        float tmp = 0,min=9999,max=0;
-        float xangle,yangle;
         
+        //float xangle,yangle;
+        //float tmp = 0,min=9999,max=0;
 //        while(1){
 //          PWM_SetDC(1,tmp);
 //          tmp+=100;
@@ -250,11 +245,6 @@ int main(void) {
                   //Read MPU6050
                 MPU6050_GetRawAccelGyro(AccelGyro);
                 
-                //printf("Acceleration : AccX:%.7d, AccY:%.7d ,AccZ:%.7d\r\n", AccelGyro[ACC_X], AccelGyro[ACC_Y], AccelGyro[ACC_Z]);
-                //printf("Angular      : GyrX:%.7d, GyrY:%.7d ,GyrZ:%.7d\r\n", AccelGyro[GYRO_X], AccelGyro[GYRO_Y], AccelGyro[GYRO_Z]);
-                //getAngles(&xangle,&yangle);
-                //printf("Angle x: %.5f y: %.5f\r\n",xangle,yangle);
-                
                 AccelGyro[GYRO_X] -= GYRO_XOUT_OFFSET;
                 AccelGyro[GYRO_Y] -= GYRO_YOUT_OFFSET;
                 AccelGyro[GYRO_Z] -= GYRO_ZOUT_OFFSET;
@@ -266,23 +256,49 @@ int main(void) {
                 pid[ACC_Y] = pid_calculate((float) rc_channel[RC_ROLL] * RC_SENSITIVITY, kalman_calculate((float) AccelGyro[ACC_Y], (float) AccelGyro[GYRO_Y], looptime, 1), 1);
                 pid[ACC_Z] = pid_calculate(0.0, kalman_calculate((float) AccelGyro[ACC_Z], (float) AccelGyro[GYRO_Z], looptime, 2), 2);
                 
-                /* Calculate speeds */
+                /* Calculate speeds
+                
+                TOP VIEW OF THE QUADRICOPTER
+                               ____
+                             /     \
+                            |       |
+                            v   m3  |
+                                |
+                                |
+                          X     | |         <-¬
+                           <----|-|--          \
+                   m1----------------------m4  |
+                                | |       ____/
+                                | |          
+                                | v Y
+                                |
+                                m2
+                
+                pid[ACC_X] ++ if Y in arrow direction
+                pid[ACC_X] -- if Y in counter arrow direction
+                pid[ACC_Y] -- if X in arrow direction
+                pid[ACC_Y] ++ if X in counter arrow direction
+                
+                
+                */
+                
         if (rc_channel[RC_SPEED] > 0) {
-            motorSpeed[0] = rc_channel[RC_SPEED] * ((2.0 - pid[ACC_X]) * pid[ACC_Y])/interval + SPEED_0;
-            motorSpeed[1] = rc_channel[RC_SPEED] * (pid[ACC_X] * (2.0 - pid[ACC_Y]))/interval + SPEED_0;
-            motorSpeed[2] = rc_channel[RC_SPEED] * (pid[ACC_X] * pid[ACC_Y])/interval + SPEED_0;
-            motorSpeed[3] = rc_channel[RC_SPEED] * (2.0 - (pid[ACC_X] * pid[ACC_Y]))/interval + SPEED_0;
+            mSpeed = rc_channel[RC_SPEED]/interval + SPEED_0;
+            motorSpeed[0] = (int16_t)(mSpeed * pid[ACC_X]);
+            motorSpeed[1] = (int16_t)(mSpeed * pid[ACC_Y]);
+            motorSpeed[2] = (int16_t)(mSpeed * (2.0 - pid[ACC_Y]));
+            motorSpeed[3] = (int16_t)(mSpeed * (2.0 - pid[ACC_X]));
         } else {
             for (int i = 0; i < 4; ++i) {
                 motorSpeed[i] = SPEED_0;
             }
         }
         
-         //Set motor speed
-                PWM_SetDC(1, motorSpeed[0]); //PE9 | PC6//ON 2ms
-		PWM_SetDC(2, motorSpeed[1]); //PE11 | PC 7
-		PWM_SetDC(3, motorSpeed[2]); //PE13
-		PWM_SetDC(4, motorSpeed[3]); //PE14
+        //Set motor speed
+        PWM_SetDC(1, motorSpeed[0]); //PE9 | PC6//ON 2ms
+	PWM_SetDC(2, motorSpeed[1]); //PE11 | PC 7
+	PWM_SetDC(3, motorSpeed[2]); //PE13
+	PWM_SetDC(4, motorSpeed[3]); //PE14
                 
 #ifdef DEB
 //                printf("motorSpeed %d %d %d %d\n", motorSpeed[0], motorSpeed[1], motorSpeed[2], motorSpeed[3]);
@@ -383,7 +399,6 @@ void analyseString(uint8_t idx){
     switch(rcvd[idx][2]){
     case LY:
       rc_channel[RC_SPEED] = rcvd[idx][3];
-       rc_channel[RC_SPEED]*=INCREASE_FACTOR;
       break;
     case RY:
       rc_channel[RC_ROLL] = rcvd[idx][3];
